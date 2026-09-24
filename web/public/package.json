@@ -1,6 +1,6 @@
 {
   "name": "krakatau-web",
-  "version": "1.0.0-beta",
+  "version": "1.0.1-beta",
   "description": "Krakatau Java decompiler (modern-Java patched) running in a Web Worker via Pyodide",
   "license": "GPL-3.0-only",
   "type": "module",
