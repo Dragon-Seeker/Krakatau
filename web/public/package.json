@@ -6,18 +6,38 @@
   "type": "module",
   "main": "krak-client.mjs",
   "exports": {
-    ".": "./krak-client.mjs",
-    "./core": "./krak-core.mjs",
-    "./worker": "./krak.worker.mjs"
+    ".": {
+      "types": "./krak-client.d.mts",
+      "default": "./krak-client.mjs"
+    },
+    "./core": {
+      "types": "./krak-core.d.mts",
+      "default": "./krak-core.mjs"
+    },
+    "./worker": {
+      "types": "./krak.worker.d.mts",
+      "default": "./krak.worker.mjs"
+    }
   },
   "files": [
     "krak-client.mjs",
     "krak-core.mjs",
     "krak.worker.mjs",
+    "krak-client.d.mts",
+    "krak-core.d.mts",
+    "krak.worker.d.mts",
+    "krakatau-cdn.d.ts",
     "krakatau-py.zip",
     "jdk-stubs.jar",
     "index.html",
     "LICENSE.TXT"
   ],
-  "keywords": ["java", "decompiler", "krakatau", "pyodide", "webworker"]
+  "keywords": [
+    "java",
+    "decompiler",
+    "krakatau",
+    "pyodide",
+    "webworker"
+  ],
+  "types": "./krak-client.d.mts"
 }

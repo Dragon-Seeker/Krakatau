@@ -51,11 +51,16 @@ jobs:
           (cd /tmp/smoke && jar cf ../smoke.jar .)
           node ci-smoke.mjs /tmp/smoke.jar
 
+      - name: Type-check published declarations
+        run: web/test/types/check.sh
+
       - uses: actions/upload-artifact@v4
         with:
           name: krakatau-web
           path: |
             web/public/*.mjs
+            web/public/*.d.mts
+            web/public/krakatau-cdn.d.ts
             web/public/index.html
             web/public/package.json
             web/public/LICENSE.TXT

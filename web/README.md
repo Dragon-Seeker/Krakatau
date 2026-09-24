@@ -36,6 +36,16 @@ Extra stub jars (Minecraft, loader, library jars) improve cast/type output:
 Measured (Lithium, 699 classes, Java 25): ~3 s runtime startup, 65–400 ms per class,
 output identical to CPython.
 
+## TypeScript
+
+Types ship inside the package (`krak-client.d.mts`, `krak-core.d.mts`), so installing it is
+enough; there is no separate `@types/krakatau-web`.
+
+    npm i krakatau-web        # or -D if you only load it from the CDN at runtime
+
+If you import straight from jsDelivr, add `krakatau-cdn.d.ts` (shipped in the package) to your
+project so the https:// specifier resolves to the package's types.
+
 ## Deploying via jsDelivr
 
 `.github/workflows/web.yml` builds the assets, runs `web/ci-smoke.mjs` under Pyodide (the
