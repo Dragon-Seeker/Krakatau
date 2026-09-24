@@ -53,6 +53,12 @@ def boolizeVars(root, arg_vars):
 
     def visitExpr(expr, forceExact=False):
         # see if we have to merge
+        if isinstance(expr, ast.StringConcat):
+            for param, flag in zip(expr.params, expr.boolFlags):
+                sub = visitExpr(param)
+                if flag is not None:
+                    sets.union(flag, sub)
+            return False
         if isinstance(expr, ast.Assignment) or isinstance(expr, ast.BinaryInfix) and expr.opstr in ('==','!=','&','|','^'):
             subs = [visitExpr(param) for param in expr.params]
             sets.union(*subs) # these operators can work on either type but need the same type on each side
@@ -116,7 +122,7 @@ def boolizeVars(root, arg_vars):
             if objtypes.baset(left.dtype) in int_tags and objtypes.dim(left.dtype) == 0:
                 if not ast.isPrimativeAssignable(right.dtype, left.dtype):
                     expr.params = [left, ast.makeCastExpr(left.dtype, right)]
-        elif isinstance(expr, ast.BinaryInfix):
+        elif isinstance(expr, ast.BinaryInfix) and not isinstance(expr, ast.StringConcat):
             a, b = expr.params
             # shouldn't need to do anything here for arrays
             if expr.opstr in '== != & | ^' and a.dtype == BoolTT or b.dtype == BoolTT:

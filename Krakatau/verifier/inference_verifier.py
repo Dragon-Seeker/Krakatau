@@ -89,6 +89,11 @@ def stateFromInitialArgs(args): return VerifierTypesState([], args[:], [])
 
 
 
+def _condyType(cpool, index):
+    # ldc of a CONSTANT_Dynamic entry: the loaded type comes from its descriptor
+    from .descriptors import parseFieldDescriptor
+    return parseFieldDescriptor(cpool.getArgs(index)[2])[0]
+
 _invoke_ops = (ops.INVOKESPECIAL, ops.INVOKESTATIC, ops.INVOKEVIRTUAL, ops.INVOKEINTERFACE, ops.INVOKEINIT, ops.INVOKEDYNAMIC)
 
 def _loadFieldDesc(cpool, ind):
@@ -237,7 +242,8 @@ def _getStackResult(cpool, instr, key):
             'Class': T_OBJECT('java/lang/Class'),
             'MethodType': T_OBJECT('java/lang/invoke/MethodType'),
             'MethodHandle': T_OBJECT('java/lang/invoke/MethodHandle'),
-        }[cpool.getType(instr[1])]
+            'Dynamic': None,
+        }[cpool.getType(instr[1])] or _condyType(cpool, instr[1])
 
     elif op == ops.JSR:
         return T_ADDRESS(instr[1])

@@ -607,8 +607,10 @@ def _inlineVariables(root):
                     else:
                         assert isinstance(left, ast.Local)
                 else:
+                    # Lambda captures are substituted into the lambda body later, so they must stay simple variables
+                    subReplace = canReplace and not getattr(expr, 'noInline', False)
                     for param in reversed(expr.params):
-                        stack.append((True, (canReplace, expr, param)))
+                        stack.append((True, (subReplace, expr, param)))
 
                 if expr == old:
                     if canReplace:
@@ -894,4 +896,7 @@ def generateAST(method, graph, forbidden_identifiers):
     flagstr = ' '.join(map(str.lower, sorted(flags)))
     inputTypes, returnTypes = parseMethodDescriptor(method.descriptor, unsynthesize=False)
     ret_tt = objtypes.verifierToSynthetic(returnTypes[0]) if returnTypes else objtypes.VoidTT
-    return ast2.MethodDef(class_, flagstr, method.name, method.descriptor, ast.TypeName(ret_tt), decls, ast_root)
+    md = ast2.MethodDef(class_, flagstr, method.name, method.descriptor, ast.TypeName(ret_tt), decls, ast_root)
+    md.namegen = namegen
+    md.methodFlags = method.flags
+    return md

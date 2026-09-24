@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Krakatau in the browser</title>
+<style>
+  :root { color-scheme: light dark; --border: #8884; --muted: #888; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.4 system-ui, sans-serif; height: 100vh; display: grid; grid-template-rows: auto 1fr; }
+  header { display: flex; gap: 12px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  #status { color: var(--muted); }
+  main { display: grid; grid-template-columns: minmax(220px, 30%) 1fr; min-height: 0; }
+  aside { display: grid; grid-template-rows: auto 1fr; border-right: 1px solid var(--border); min-height: 0; }
+  #filter { margin: 8px; padding: 6px 8px; }
+  #classes { list-style: none; margin: 0; padding: 0; overflow: auto; font: 12px ui-monospace, monospace; }
+  #classes li { padding: 3px 10px; cursor: pointer; white-space: nowrap; }
+  #classes li:hover { background: #8882; }
+  #classes li.active { background: #4a90e233; }
+  pre { margin: 0; padding: 12px 16px; overflow: auto; font: 12.5px/1.45 ui-monospace, monospace; white-space: pre; }
+  .error { color: #d33; }
+</style>
+</head>
+<body>
+<header>
+  <strong>Krakatau</strong>
+  <input type="file" id="file" accept=".jar,.zip" disabled>
+  <span id="status">Loading Python runtime…</span>
+</header>
+<main>
+  <aside>
+    <input id="filter" placeholder="Filter classes" disabled>
+    <ul id="classes"></ul>
+  </aside>
+  <pre id="source">Choose a .jar to browse its classes.</pre>
+</main>
+<script type="module">
+import { KrakClient } from './krak-client.mjs';
+
+const $ = (id) => document.getElementById(id);
+// ?pyodide=./pyodide/ serves the runtime from your own origin instead of the jsDelivr default
+const pyodideURL = new URLSearchParams(location.search).get('pyodide') ?? undefined;
+const krak = new KrakClient({ pyodideURL, krakatauURL: './krakatau-py.zip', stubURLs: ['./jdk-stubs.jar'] });
+let jarId = null, classes = [], current = null;
+
+krak.ready.then(() => {
+  $('status').textContent = 'Ready.';
+  $('file').disabled = false;
+}, (err) => { $('status').textContent = 'Failed to start: ' + err.message; });
+
+$('file').onchange = async () => {
+  const file = $('file').files[0];
+  if (!file) return;
+  $('status').textContent = `Reading ${file.name}…`;
+  if (jarId !== null) await krak.closeJar(jarId);
+  ({ jarId, classes } = await krak.openJar(await file.arrayBuffer()));
+  $('filter').disabled = false;
+  $('status').textContent = `${file.name}: ${classes.length} classes`;
+  renderList();
+};
+
+$('filter').oninput = renderList;
+
+function renderList() {
+  const q = $('filter').value.toLowerCase();
+  const ul = $('classes');
+  ul.replaceChildren(...classes
+    .filter((c) => c.toLowerCase().includes(q))
+    .map((c) => {
+      const li = document.createElement('li');
+      li.textContent = c;
+      li.title = c;
+      li.classList.toggle('active', c === current);
+      li.onclick = () => show(c);
+      return li;
+    }));
+}
+
+async function show(name) {
+  current = name;
+  renderList();
+  $('source').className = '';
+  $('source').textContent = `Decompiling ${name}…`;
+  const t = performance.now();
+  const { source, error } = await krak.decompile(jarId, name);
+  if (current !== name) return; // user clicked something else meanwhile
+  $('source').className = error ? 'error' : '';
+  $('source').textContent = source ?? error;
+  $('status').textContent = `${name} in ${Math.round(performance.now() - t)} ms`;
+}
+</script>
+</body>
+</html>

@@ -59,9 +59,10 @@ class Invoke(BaseOp):
 class InvokeDynamic(BaseOp):
     has_side_effects = True
 
-    def __init__(self, parent, desc, args):
+    def __init__(self, parent, desc, args, index=None):
         super(InvokeDynamic, self).__init__(parent, args, makeException=True)
         self.desc = desc
+        self.index = index # constant pool index of the CONSTANT_InvokeDynamic entry
         vtypes = parseMethodDescriptor(self.desc)[1]
 
         dtype = None

@@ -4,7 +4,7 @@ import struct
 from ..ssa import objtypes
 from ..verifier.descriptors import parseFieldDescriptor
 
-from . import ast, ast2, javamethod, throws
+from . import ast, ast2, indy, javamethod, throws
 from .reserved import reserved_identifiers
 
 def loadConstValue(cpool, index):
@@ -68,4 +68,5 @@ def generateAST(cls, cb, skip_errors, method=None, add_throws=False):
     method_defs = [_getMethod(m, cb, forbidden_identifiers, skip_errors) for m in methods]
     if add_throws:
         throws.addSingle(cls.env, method_defs)
-    return ast2.ClassDef(' '.join(myflags), isInterface, cls.name, superc, interfaces, field_defs, method_defs)
+    class_def = ast2.ClassDef(' '.join(myflags), isInterface, cls.name, superc, interfaces, field_defs, method_defs)
+    return indy.postprocessClass(cls, class_def)

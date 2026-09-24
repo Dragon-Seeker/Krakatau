@@ -147,7 +147,7 @@ class DirectoryWriter(object):
             if exc.errno != errno.EEXIST:
                 raise
 
-        if isinstance(data, unicode):
+        if isinstance(data, str):
             data = data.encode('utf8')
         with open(out, 'wb') as f:
             f.write(data)

@@ -97,6 +97,8 @@ class ClassDef(object):
         self.methods = methods
         if superc == 'java/lang/Object':
             self.super = None
+        self.recordComponents = None # [(TypeName, name)] for records
+        self.permits = [] # [TypeName] for sealed classes
 
     def print_(self, printer, print_):
         contents = ''
@@ -109,10 +111,20 @@ class ClassDef(object):
 
         indented = ['    '+line for line in contents.splitlines()]
         name = print_(self.name).rpartition('.')[-1]
-        defname = 'interface' if self.isInterface else 'class'
-        header = '{}{} {}'.format(self.flagstr, defname, name)
+        isRecord = self.recordComponents is not None
+        defname = 'interface' if self.isInterface else ('record' if isRecord else 'class')
+        flags = self.flagstr.split()
+        if self.isInterface:
+            flags = [f for f in flags if f != 'abstract']
+        if isRecord:
+            flags = [f for f in flags if f != 'final']
+        if self.permits:
+            flags.append('sealed')
+        header = '{} {}'.format(' '.join(flags + [defname]), name)
+        if isRecord:
+            header += '(' + ', '.join('{} {}'.format(print_(t), escape(n)) for t, n in self.recordComponents) + ')'
 
-        if self.super:
+        if self.super and not isRecord:
             header += ' extends ' + print_(self.super)
         if self.interfaces:
             if self.isInterface:
@@ -120,6 +132,8 @@ class ClassDef(object):
                 header += ' extends ' + ', '.join(print_(x) for x in self.interfaces)
             else:
                 header += ' implements ' + ', '.join(print_(x) for x in self.interfaces)
+        if self.permits:
+            header += ' permits ' + ', '.join(print_(x) for x in self.permits)
 
         lines = [header + ' {'] + indented + ['}']
         return '\n'.join(lines) + '\n'

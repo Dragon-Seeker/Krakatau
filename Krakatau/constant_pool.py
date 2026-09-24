@@ -57,6 +57,9 @@ MethodHandle = cpoolInfo_t('MethodHandle',15,
 MethodType = cpoolInfo_t('MethodType',16,
                 (lambda self,n_id:self.getArgs(n_id)))
 
+Dynamic = cpoolInfo_t('Dynamic',17,
+                (lambda self,bs_id,nat_id:(bs_id,) + self.getArgs(nat_id)))
+
 InvokeDynamic = cpoolInfo_t('InvokeDynamic',18,
                 (lambda self,bs_id,nat_id:(bs_id,) + self.getArgs(nat_id)))
 
@@ -66,7 +69,7 @@ Package = cpoolInfo_t('Package',20, (lambda self,unkn: unkn))
 
 cpoolTypes = [Utf8, Class, NameAndType, Field, Method, InterfaceMethod,
               String, Int, Long, Float, Double,
-              MethodHandle, MethodType, InvokeDynamic, Module, Package]
+              MethodHandle, MethodType, Dynamic, InvokeDynamic, Module, Package]
 name2Type = {t.name:t for t in cpoolTypes}
 tag2Type = {t.tag:t for t in cpoolTypes}
 

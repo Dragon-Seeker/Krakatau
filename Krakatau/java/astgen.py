@@ -3,7 +3,7 @@ from ..namegen import LabelGen
 from ..ssa import objtypes, ssa_jumps, ssa_ops, ssa_types
 from ..verifier.descriptors import parseFieldDescriptor, parseMethodDescriptor
 
-from . import ast
+from . import ast, indy
 from .setree import SEBlockItem, SEIf, SEScope, SESwitch, SETry, SEWhile
 
 # prefixes for name generation
@@ -143,18 +143,28 @@ def _convertJExpr(op, getExpr, clsname):
         if op.instruction[0] == opnames.INVOKEINIT and op.isThisCtor:
             name = 'this' if (op.target == clsname) else 'super'
             expr = ast.MethodInvocation(None, name, tt_types, params[1:], op, ret_type)
-        elif op.instruction[0] == opnames.INVOKESTATIC: # TODO - fix this for special super calls
+        elif op.instruction[0] == opnames.INVOKESPECIAL and op.target != clsname and getattr(op.params[0], 'name', None) == 'this':
+            # invokespecial on this with another class as target: super.foo() or Iface.super.foo()
+            # the constant pool entry type tells us whether the target is an interface, even without library classes
+            if op.parent.getConstPoolType(op.instruction[1]) == 'InterfaceMethod':
+                left = ast.Dummy('{}.super', [ast.TypeName(target_tt)], dtype=target_tt)
+            else:
+                left = ast.Dummy('super', [], dtype=target_tt)
+            expr = ast.MethodInvocation(left, op.name, [target_tt]+tt_types, params[1:], op, ret_type)
+        elif op.instruction[0] == opnames.INVOKESTATIC:
             expr = ast.MethodInvocation(ast.TypeName(target_tt), op.name, [None]+tt_types, params, op, ret_type)
         else:
             expr = ast.MethodInvocation(params[0], op.name, [target_tt]+tt_types, params[1:], op, ret_type)
     elif isinstance(op, ssa_ops.InvokeDynamic):
         vtypes, rettypes = parseMethodDescriptor(op.desc, unsynthesize=False)
         ret_type = objtypes.verifierToSynthetic(rettypes[0]) if rettypes else None
-        fmt = '/*invokedynamic*/'
-        if ret_type is not None:
-            fmt += '{{{}}}'.format(len(params))
-            params.append(ast.dummyLiteral(ret_type))
-        expr = ast.Dummy(fmt, params, dtype=ret_type)
+        expr = indy.makeIndyExpr(op, params, ret_type)
+        if expr is None:
+            fmt = '/*invokedynamic*/'
+            if ret_type is not None:
+                fmt += '{{{}}}'.format(len(params))
+                params.append(ast.dummyLiteral(ret_type))
+            expr = ast.Dummy(fmt, params, dtype=ret_type)
     elif isinstance(op, ssa_ops.Monitor):
         fmt = '/*monexit({})*/' if op.exit else '/*monenter({})*/'
         expr = ast.Dummy(fmt, params)

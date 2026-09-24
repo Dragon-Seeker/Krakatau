@@ -224,7 +224,7 @@ def _invoke_dynamic(maker, input_, iNode):
     splitInd = len(input_.stack) - argcnt
 
     args = [x for x in input_.stack[splitInd:] if x is not None]
-    line = ssa_ops.InvokeDynamic(maker.parent, desc, args)
+    line = ssa_ops.InvokeDynamic(maker.parent, desc, args, index)
     newstack = input_.stack[:splitInd] + line.returned
     return ResultDict(line=line, newstack=newstack)
 
@@ -280,6 +280,14 @@ def _ldc(maker, input_, iNode):
             args_repr = str(args)
         placeholder = 'Unknown constant {} {}'.format(entry_type, args_repr)
         var = makeConstVar(maker.parent, SSA_OBJECT, placeholder)
+        var.decltype = objtypes.ObjectTT
+
+    elif entry_type == 'Dynamic':
+        # Dynamically-computed constant (condy). Only reference-typed ones can be shown as a placeholder.
+        desc = args[2]
+        if not (desc.startswith('L') or desc.startswith('[')):
+            raise NotImplementedError('Primitive-typed CONSTANT_Dynamic is not supported: ' + desc)
+        var = makeConstVar(maker.parent, SSA_OBJECT, 'Unknown constant Dynamic {} {}'.format(args[1], desc))
         var.decltype = objtypes.ObjectTT
 
     assert var

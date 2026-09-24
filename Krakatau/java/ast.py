@@ -451,6 +451,13 @@ class BinaryInfix(JavaExpression):
 
     def tree(self, printer, tree): return [self.__class__.__name__, list(map(tree, self.params)), self.opstr]
 
+class StringConcat(BinaryInfix):
+    '''String concatenation rebuilt from an invokedynamic. boolFlags gives, per operand, whether the
+    call site declared it boolean (True), another int-like type (False), or unknown/non-int (None).'''
+    def __init__(self, params, boolFlags):
+        super(StringConcat, self).__init__('+', params, dtype=objtypes.StringTT)
+        self.boolFlags = boolFlags
+
 class Cast(JavaExpression):
     precedence = 5
     def __init__(self, *params):
