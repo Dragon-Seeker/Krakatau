@@ -3,4 +3,30 @@
 test*.py
 Krakatau/plugins/*
 tests/.cache
-.idea/
+
+# dependencies
+node_modules
+
+# IDEs and editors
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/i18n-ally-custom-framework.yml
+
+# IDE - IntelliJ
+.idea/*
+!.idea/code.iml
+!.idea/gradle.xml
+!.idea/icon.svg
+!.idea/modules.xml
+!.idea/vcs.xml

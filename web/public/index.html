@@ -40,7 +40,7 @@ import { KrakClient } from './krak-client.mjs';
 const $ = (id) => document.getElementById(id);
 // ?pyodide=./pyodide/ serves the runtime from your own origin instead of the jsDelivr default
 const pyodideURL = new URLSearchParams(location.search).get('pyodide') ?? undefined;
-const krak = new KrakClient({ pyodideURL, krakatauURL: './krakatau-py.zip', stubURLs: ['./jdk-stubs.jar'] });
+const krak = new KrakClient({ pyodideURL });
 let jarId = null, classes = [], current = null;
 
 krak.ready.then(() => {

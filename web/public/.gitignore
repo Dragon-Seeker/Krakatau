@@ -1,0 +1,4 @@
+# build outputs (made by tools/build_web.sh in CI)
+krakatau-py.zip
+jdk-stubs.jar
+pyodide/

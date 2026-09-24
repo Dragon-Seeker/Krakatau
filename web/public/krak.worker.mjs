@@ -4,6 +4,9 @@
 import { KrakCore } from './krak-core.mjs';
 
 const DEFAULT_PYODIDE = 'https://cdn.jsdelivr.net/npm/pyodide@314.0.7/';
+// Resolve against this module's real URL, not self.location: when loaded from a CDN the
+// worker runs inside a same-origin blob: wrapper, and relative URLs must still hit the CDN.
+const HERE = import.meta.url;
 let core = null;
 
 async function fetchBytes(url) {
@@ -13,12 +16,12 @@ async function fetchBytes(url) {
 }
 
 const handlers = {
-  async init({ pyodideURL = DEFAULT_PYODIDE, krakatauURL, stubURLs = [] }) {
+  async init({ pyodideURL = DEFAULT_PYODIDE, krakatauURL = './krakatau-py.zip', stubURLs = ['./jdk-stubs.jar'] }) {
     if (core) return { ready: true };
-    const base = new URL(pyodideURL, self.location.href).href;
+    const base = new URL(pyodideURL, HERE).href;
     const { loadPyodide } = await import(new URL('pyodide.mjs', base).href);
     const [krakatauZip, ...stubBytes] = await Promise.all(
-      [krakatauURL, ...stubURLs].map((u) => fetchBytes(new URL(u, self.location.href).href)));
+      [krakatauURL, ...stubURLs].map((u) => fetchBytes(new URL(u, HERE).href)));
     const stubs = stubBytes.map((bytes, i) => ({ name: `stub${i}.jar`, bytes }));
     core = await KrakCore.create({ loadPyodide, indexURL: base, krakatauZip, stubs });
     return { ready: true };

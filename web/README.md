@@ -35,3 +35,26 @@ Extra stub jars (Minecraft, loader, library jars) improve cast/type output:
 
 Measured (Lithium, 699 classes, Java 25): ~3 s runtime startup, 65–400 ms per class,
 output identical to CPython.
+
+## Deploying via jsDelivr
+
+`.github/workflows/web.yml` builds the assets, runs `web/ci-smoke.mjs` under Pyodide (the
+release fails if lambdas, string concat, records etc. regress), and on a `web-v*` tag
+publishes `web/public` to npm as `krakatau-web`. jsDelivr serves every npm version
+automatically, so a release is:
+
+    git tag web-v1.0.0 && git push origin web-v1.0.0
+
+One-time setup: create the package on npmjs.com and add this repo/workflow as a Trusted
+Publisher (or add an `NPM_TOKEN` secret and uncomment the env block in the workflow).
+Rename the package in `web/public/package.json` if `krakatau-web` is taken.
+
+Consumers then need no build step and no copies of the assets:
+
+    import { KrakClient } from 'https://cdn.jsdelivr.net/npm/krakatau-web@1.0.0/krak-client.mjs';
+    const krak = new KrakClient();   // zip + stubs load from the same CDN version
+
+The client starts the worker through a same-origin `blob:` shim, because browsers don't
+allow `new Worker()` on a cross-origin URL. Always pin an exact version: exact-version URLs
+are cached permanently, while ranges and `@latest` are cached for a while and need a purge
+(`https://purge.jsdelivr.net/npm/krakatau-web@latest/...`) after a release.

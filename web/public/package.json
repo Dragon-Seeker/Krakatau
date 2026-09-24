@@ -1,0 +1,23 @@
+{
+  "name": "krakatau-web",
+  "version": "1.0.0-beta",
+  "description": "Krakatau Java decompiler (modern-Java patched) running in a Web Worker via Pyodide",
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "main": "krak-client.mjs",
+  "exports": {
+    ".": "./krak-client.mjs",
+    "./core": "./krak-core.mjs",
+    "./worker": "./krak.worker.mjs"
+  },
+  "files": [
+    "krak-client.mjs",
+    "krak-core.mjs",
+    "krak.worker.mjs",
+    "krakatau-py.zip",
+    "jdk-stubs.jar",
+    "index.html",
+    "LICENSE.TXT"
+  ],
+  "keywords": ["java", "decompiler", "krakatau", "pyodide", "webworker"]
+}
