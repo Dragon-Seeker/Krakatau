@@ -26,6 +26,44 @@ Node smoke test: `cd web && npm i pyodide@314.0.7 && node node-test.mjs some.jar
     const { source, error } = await krak.decompile(jarId, 'com/example/Foo');
     await krak.closeJar(jarId);
 
+### Single classes (bytes you already have)
+
+If your app reads jars itself, skip `openJar` and hand over one `.class` file's bytes. The class
+name is read from the bytes; your buffer is copied, not transferred.
+
+    const { className, source, error } = await krak.decompileClass(classBytes);
+
+    // optional: supertypes/siblings visible for this call only (better casts and types)
+    await krak.decompileClass(classBytes, { classpath: [superBytes, ifaceBytes] });
+
+    // many classes from one mod: load its classes once, decompile any of them on demand
+    const ws = await krak.createWorkspace();
+    await ws.addClasses(allClassBytes);          // ~100 ms for ~700 classes
+    const r = await ws.decompileClass(classBytes);
+    await ws.close();
+
+First call pays for parsing the JDK stubs (~0.4 s); after that ~40 ms+ per class.
+
+### External class source (resolveClass)
+
+Like slicer's decompiler setups, the decompiler can ask *your* code for classes it can't find
+in the jar, workspace or JDK stubs: the game jar, a mod loader, dependency mods, a Maven repo...
+
+    const krak = new KrakClient({
+      resolveClass: async (name) => {           // e.g. "net/minecraft/world/entity/Entity"
+        return myZipIndex.get(name + '.class') ?? null;   // bytes, or null if unknown
+      },
+    });
+    await krak.setClassResolver(otherFn);       // swap / clear (null) at runtime
+
+It runs on your thread (the worker asks by message), may be sync or async, and each name is
+asked at most once until the resolver is changed. Two modes, picked automatically:
+
+* JSPI (Chrome/Edge today; `(await krak.ready).jspi === true`): the decompiler pauses mid-run
+  until your promise resolves. One pass per class.
+* Everywhere else: missing names are collected, fetched together with their supertype chains,
+  and the class is decompiled again (usually one extra pass). Output is identical.
+
 Files: `krak-client.mjs` (main thread), `krak.worker.mjs` (worker, one request at a time),
 `krak-core.mjs` (Pyodide driver; also importable in Node for tests/CLI use).
 

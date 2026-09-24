@@ -13,12 +13,23 @@ emitted_cls_refs = set([
 
 class Environment(object):
     def __init__(self):
+        self.memory = {} # internal name -> classfile bytes, see addClassBytes
+        self.resolver = None # optional callable(name) -> bytes or None, asked after memory and path
         self.classes = {}
         self.path = []
         self._open = {}
 
     def addToPath(self, path):
         self.path.append(path)
+
+    def addClassBytes(self, name, data):
+        '''Make a class available from memory (checked before the path). Replaces any earlier version.'''
+        self.memory[name] = data
+        self.classes.pop(name, None)
+
+    def removeClassBytes(self, name):
+        self.memory.pop(name, None)
+        self.classes.pop(name, None)
 
     def _getSuper(self, name):
         try:
@@ -74,6 +85,14 @@ class Environment(object):
             return False
 
     def _searchForFile(self, name):
+        if name in self.memory:
+            return self.memory[name]
+        data = self._searchPath(name)
+        if data is None and self.resolver is not None:
+            data = self.resolver(name)
+        return data
+
+    def _searchPath(self, name):
         name += '.class'
         for place in self.path:
             try:

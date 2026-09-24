@@ -17,7 +17,7 @@ const limit = Number(process.argv[3] || classes.length);
 let errors = 0, out = {};
 const t2 = performance.now();
 for (const name of classes.slice(0, limit)) {
-  const r = core.decompile(jarId, name);
+  const r = await core.decompile(jarId, name);
   if (r.error) { errors++; if (errors < 3) console.log(name, r.error.slice(0, 300)); }
   out[name] = r.source;
 }

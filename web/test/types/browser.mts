@@ -10,3 +10,17 @@ export async function run(file: File): Promise<string> {
   void msg;
   return r.source ?? r.error ?? '';
 }
+
+export async function single(bytes: Uint8Array, siblings: Uint8Array[]) {
+  const krak = new KrakClient({ resolveClass: async (name) => (name === 'a/B' ? siblings[0] : null) });
+  const { jspi } = await krak.ready;
+  void jspi;
+  await krak.setClassResolver((name) => (name.length ? null : undefined)); // sync resolvers are fine too
+  const one = await krak.decompileClass(bytes, { classpath: siblings });
+  const name: string | null = one.className;
+  const ws = await krak.createWorkspace();
+  const added: string[] = await ws.addClasses(siblings);
+  const two = await ws.decompileClass(bytes);
+  await ws.close();
+  return [name, added, two.source];
+}
