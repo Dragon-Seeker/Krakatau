@@ -1,5 +1,5 @@
 // Module worker: new Worker(new URL('./krak.worker.mjs', import.meta.url), { type: 'module' })
-// Messages in:  { id, type: 'init' | 'openJar' | 'decompile' | 'closeJar', ...args }
+// Messages in:  { id, type: 'init' | 'openJar' | 'decompile' | 'decompileMapped' | 'closeJar', ...args }
 // Messages out: { id, ok: true, result } | { id, ok: false, error }
 import { KrakCore } from './krak-core.mjs';
 
@@ -40,11 +40,13 @@ const handlers = {
   },
   openJar: ({ bytes }) => core.openJar(bytes),
   decompile: ({ jarId, className }) => core.decompile(jarId, className),
+  decompileMapped: ({ jarId, className }) => core.decompileMapped(jarId, className),
   closeJar: ({ jarId }) => core.closeJar(jarId),
   setResolver: ({ enabled }) => core.setClassResolver(enabled ? askPage : null),
   createWorkspace: () => core.createWorkspace(),
   addClasses: ({ workspaceId, classes }) => core.addClasses(workspaceId, classes),
   decompileClass: ({ bytes, workspaceId, classpath }) => core.decompileClass(bytes, { id: workspaceId, classpath }),
+  decompileClassMapped: ({ bytes, workspaceId, classpath }) => core.decompileClassMapped(bytes, { id: workspaceId, classpath }),
 };
 
 // Requests are handled strictly one at a time; Python is single-threaded anyway.

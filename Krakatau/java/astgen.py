@@ -186,9 +186,29 @@ def _convertJExpr(op, getExpr, clsname):
     return ast.ExpressionStatement(expr)
 
 #########################################################################################
+# bytecode mapping: AST nodes made from an instruction carry (method triple, offset); the
+# MappingVisitor turns them into line numbers when printing
+def _tag(info, node, src):
+    off = getattr(src, 'bc_offset', None)
+    if node is not None and off is not None and getattr(node, 'bc_pos', None) is None and not isinstance(node, (ast.Local, ast.Literal)):
+        node.bc_pos = (info.triple, off)
+    return node
+
+def _tagStatement(info, op, stmt):
+    if stmt is None:
+        return None
+    _tag(info, stmt, op)
+    expr = getattr(stmt, 'expr', None)
+    _tag(info, expr, op)
+    # the value side survives when the assignment is inlined into its use. Only when the op has
+    # an output: otherwise the right side is a shared Local/Literal (e.g. putfield's value)
+    if isinstance(expr, ast.Assignment) and getattr(op, 'rval', None) is not None:
+        _tag(info, expr.params[1], op)
+    return stmt
+
 def _createASTBlock(info, endk, node):
     getExpr = lambda var: info.var(node, var)
-    op2expr = lambda op: _convertJExpr(op, getExpr, info.clsname)
+    op2expr = lambda op: _tagStatement(info, op, _convertJExpr(op, getExpr, info.clsname))
 
     block = node.block
     if block is not None:
@@ -308,7 +328,7 @@ def _createASTSub(info, current, ftitem, forceUnlabled=False):
         parts = [_createASTSub(info, scope, ftitem, True) for scope in current.getScopes()]
         cmp_str = _cmp_strs[jump.cmp]
         exprs = [info.var(node, var) for var in jump.params]
-        ifexpr = ast.BinaryInfix(cmp_str, exprs, objtypes.BoolTT)
+        ifexpr = _tag(info, ast.BinaryInfix(cmp_str, exprs, objtypes.BoolTT), jump)
         new = ast.IfStatement(info.labelgen, midk, endk, ifexpr, tuple(parts))
 
     elif isinstance(current, SESwitch):
@@ -319,7 +339,7 @@ def _createASTSub(info, current, ftitem, forceUnlabled=False):
 
         expr = info.var(node, jump.params[0])
         pairs = list(zip(current.ordered_keysets, parts))
-        new = ast.SwitchStatement(info.labelgen, midk, endk, expr, pairs)
+        new = _tag(info, ast.SwitchStatement(info.labelgen, midk, endk, expr, pairs), jump)
 
     # bundle head and if together so we can return as single statement
     headscope = _createASTBlock(info, midk, node)
@@ -328,5 +348,6 @@ def _createASTSub(info, current, ftitem, forceUnlabled=False):
 
 def createAST(method, ssagraph, seroot, namegen):
     info = VarInfo(method, ssagraph.blocks, namegen)
+    info.triple = method.class_.name, method.name, method.descriptor
     astroot = _createASTSub(info, seroot, None)
     return astroot, info

@@ -621,6 +621,14 @@ _init_d = {objtypes.BoolTT: Literal.FALSE,
 def dummyLiteral(tt):
     return _init_d.get(tt, Literal.NULL)
 
+def carry(old, new):
+    """bytecode mapping: a rewritten node keeps the position of the node it replaces. Locals and
+    literals are shared between uses, so they never carry one."""
+    pos = getattr(old, 'bc_pos', None)
+    if pos is not None and new is not None and getattr(new, 'bc_pos', None) is None and not isinstance(new, (Local, Literal)):
+        new.bc_pos = pos
+    return new
+
 class Local(JavaExpression):
     def __init__(self, vartype, namefunc):
         self.dtype = vartype

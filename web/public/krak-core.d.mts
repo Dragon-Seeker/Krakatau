@@ -1,4 +1,4 @@
-import type { ClassName, DecompileClassResult, DecompileResult, OpenJarResult } from './krak-client.mjs';
+import type { ClassName, DecompileClassResult, DecompileResult, MappedDecompileClassResult, MappedDecompileResult, OpenJarResult } from './krak-client.mjs';
 
 /** Anything with bytes: ArrayBuffer, a typed array, or a Node Buffer. */
 export type Bytes = ArrayBuffer | ArrayBufferView;
@@ -29,6 +29,8 @@ export declare class KrakCore {
   setClassResolver(fn: ((name: ClassName) => Bytes | null | undefined | Promise<Bytes | null | undefined>) | null): void;
   openJar(bytes: Bytes): OpenJarResult;
   decompile(jarId: number, className: ClassName): Promise<DecompileResult>;
+  /** Like decompile, plus each method's bytecode offset -> line mapping. */
+  decompileMapped(jarId: number, className: ClassName): Promise<MappedDecompileResult>;
   closeJar(jarId: number): void;
   /** A classpath without a jar; returns an id usable wherever a jarId is. */
   createWorkspace(): number;
@@ -36,5 +38,7 @@ export declare class KrakCore {
   addClasses(id: number, classes: Bytes[]): ClassName[];
   /** Decompile one class file. Without an id a shared default workspace is used. */
   decompileClass(bytes: Bytes, options?: { id?: number; classpath?: Bytes[] }): Promise<DecompileClassResult>;
+  /** Like decompileClass, plus each method's bytecode offset -> line mapping. */
+  decompileClassMapped(bytes: Bytes, options?: { id?: number; classpath?: Bytes[] }): Promise<MappedDecompileClassResult>;
   close(id: number): void;
 }

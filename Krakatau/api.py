@@ -4,6 +4,11 @@
     with Session(['/work/mod.jar', '/stubs/jdk-stubs.jar']) as s:
         names = s.list_classes('/work/mod.jar')
         result = s.decompile('com/example/Foo')   # {'source': ..., 'error': None}
+
+        # with the output line each bytecode offset was printed on, per method:
+        result = s.decompile('com/example/Foo', mapped=True)
+        # {'source': ..., 'error': None, 'methods': [{'owner': 'com/example/Foo', 'name': 'run',
+        #   'descriptor': '()V', 'lines': [[0, 12], [7, 13]], 'original': None}, ...]}
 """
 import contextlib
 import io
@@ -107,9 +112,10 @@ class Session(object):
         for name in names:
             self.env.removeClassBytes(name)
 
-    def decompile_bytes(self, data, classpath=()):
+    def decompile_bytes(self, data, classpath=(), mapped=False):
         '''Decompile one classfile given as bytes. `classpath` classfiles are only visible for this
-        call (classes added with add_classes stay). Returns {class_name, source, error, log}.'''
+        call (classes added with add_classes stay). Returns {class_name, source, error, log}, plus
+        `methods` with mapped=True (see decompile).'''
         data = bytes(data)
         try:
             name = class_name_of(data)
@@ -127,7 +133,7 @@ class Session(object):
                 temp.append(n)
             previous.setdefault(name, self.env.memory.get(name))
             self.env.addClassBytes(name, data)
-            result = self.decompile(name)
+            result = self.decompile(name, mapped)
         finally:
             for n, old in previous.items(): # restore whatever was there before this call
                 if old is None:
@@ -137,19 +143,33 @@ class Session(object):
         result['class_name'] = name
         return result
 
-    def decompile(self, name):
-        '''Decompile one class by internal name (e.g. "com/example/Foo"). Returns {source, error, log}.'''
+    def decompile(self, name, mapped=False):
+        '''Decompile one class by internal name (e.g. "com/example/Foo"). Returns {source, error, log}.
+
+        With mapped=True the result also has `methods`: for each method with printed code,
+        {owner, name, descriptor, lines, original}, where `lines` are [bytecode offset, 1-based line in
+        source] pairs sorted by offset (the line an instruction's code starts on; offsets of loads,
+        stores and other instructions that don't become code of their own are absent), and `original`
+        is always None. The source is the same either way.'''
         log = io.StringIO()
-        source, error = None, None
+        source, error, methods = None, None, None
         with contextlib.redirect_stdout(log if self.quiet else _Tee(log)):
             try:
                 # always parse the target fresh; it may have been loaded earlier as someone's supertype
                 self.env.classes.pop(name, None)
                 cls = self.env.getClass(name)
                 ast = javaclass.generateAST(cls, lambda m: _makeGraph(False, m), self.skip_errors)
-                source = self.printer.visit(ast)
+                if mapped:
+                    printer = visitor.MappingVisitor()
+                    source, positions = printer.finish(printer.visit(ast))
+                else:
+                    source, positions = self.printer.visit(ast), ()
                 if '/' in name:
-                    source = 'package {};\n\n'.format(escapeString(name.replace('/', '.').rpartition('.')[0])) + source
+                    package = 'package {};\n\n'.format(escapeString(name.replace('/', '.').rpartition('.')[0]))
+                    source = package + source
+                    positions = [(o, n, d, off, line + package.count('\n')) for o, n, d, off, line in positions]
+                if mapped:
+                    methods = _methods(positions)
             except ClassLoaderError as e:
                 error = 'Missing or invalid class: {}'.format(e.data)
             except Exception:
@@ -157,7 +177,19 @@ class Session(object):
             finally:
                 # drop the fully-loaded target so memory doesn't grow with every class viewed
                 self.env.classes.pop(name, None)
-        return {'source': source, 'error': error, 'log': log.getvalue()}
+        result = {'source': source, 'error': error, 'log': log.getvalue()}
+        if mapped:
+            result['methods'] = methods or []
+        return result
+
+def _methods(positions):
+    '''MappingVisitor positions -> [{owner, name, descriptor, lines, original}], keeping each offset's
+    first (earliest printed) line'''
+    by_method = {}
+    for owner, name, desc, off, line in positions:
+        by_method.setdefault((owner, name, desc), {}).setdefault(off, line)
+    return [{'owner': o, 'name': n, 'descriptor': d, 'lines': [[off, lines[off]] for off in sorted(lines)], 'original': None}
+            for (o, n, d), lines in by_method.items()]
 
 class _Tee(io.StringIO):
     def __init__(self, other):

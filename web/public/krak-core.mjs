@@ -101,11 +101,11 @@ def create_workspace(ws_id, stub_paths):
 def add_classes(ws_id, datas):
     return _sessions[ws_id].add_classes([_b(d) for d in datas])
 
-def decompile(jar_id, name):
-    return _sessions[jar_id].decompile(name)
+def decompile(jar_id, name, mapped=False):
+    return _sessions[jar_id].decompile(name, mapped)
 
-def decompile_class(ws_id, data, classpath):
-    return _sessions[ws_id].decompile_bytes(_b(data), [_b(c) for c in classpath])
+def decompile_class(ws_id, data, classpath, mapped=False):
+    return _sessions[ws_id].decompile_bytes(_b(data), [_b(c) for c in classpath], mapped)
 
 def close_jar(jar_id):
     s = _sessions.pop(jar_id, None)
@@ -122,6 +122,9 @@ function toU8(bytes) {
 // JSPI lets Python block on a JS promise mid-decompile. Feature-detect the engine support.
 const HAS_JSPI = typeof WebAssembly !== 'undefined' && typeof WebAssembly.Suspending === 'function';
 const MAX_ROUNDS = 16;
+
+// Python's method dicts -> plain objects; `original` is None in Python, null here.
+const methodsOf = (out) => (out.methods ?? []).map((m) => ({ ...m, original: m.original ?? null }));
 
 export class KrakCore {
   /**
@@ -270,6 +273,15 @@ export class KrakCore {
     return { source: out.source ?? null, error: out.error ?? null };
   }
 
+  /**
+   * Like decompile, plus `methods`: for each method with printed code, the output line each bytecode
+   * offset was printed on ({ owner, name, descriptor, lines: [[offset, 1-based line]], original: null }).
+   */
+  async decompileMapped(jarId, className) {
+    const out = await this._resolving('decompile', jarId, className, true);
+    return { source: out.source ?? null, error: out.error ?? null, methods: methodsOf(out) };
+  }
+
   /** A classpath without a jar; returns an id usable wherever a jarId is. */
   createWorkspace() {
     const id = this.nextId++;
@@ -295,6 +307,13 @@ export class KrakCore {
     if (id == null) id = this.defaultWorkspace ??= this.createWorkspace();
     const out = await this._resolving('decompile_class', id, toU8(bytes), classpath.map(toU8));
     return { className: out.class_name ?? null, source: out.source ?? null, error: out.error ?? null };
+  }
+
+  /** Like decompileClass, plus `methods` (see decompileMapped). */
+  async decompileClassMapped(bytes, { id, classpath = [] } = {}) {
+    if (id == null) id = this.defaultWorkspace ??= this.createWorkspace();
+    const out = await this._resolving('decompile_class', id, toU8(bytes), classpath.map(toU8), true);
+    return { className: out.class_name ?? null, source: out.source ?? null, error: out.error ?? null, methods: methodsOf(out) };
   }
 
   /** Close a jar or workspace. */

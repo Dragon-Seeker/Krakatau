@@ -62,9 +62,9 @@ def reverseBoolExpr(expr):
             left, right = expr.params
             # be sure not to reverse floating point comparisons since it's not equivalent for NaN
             if expr.opstr in symbols[:2] or (left.dtype not in floatts and right.dtype not in floatts):
-                return ast.BinaryInfix(sym2, [left, right], objtypes.BoolTT)
+                return ast.carry(expr, ast.BinaryInfix(sym2, [left, right], objtypes.BoolTT))
     elif isinstance(expr, ast.UnaryPrefix) and expr.opstr == '!':
-        return expr.params[0]
+        return ast.carry(expr, expr.params[0])
     return ast.UnaryPrefix('!', expr)
 
 def getSubscopeIter(root):
@@ -150,7 +150,7 @@ def _fixObjectCreations(scope, item):
             return [] # remove item
     elif isinstance(expr, ast.MethodInvocation) and expr.name == '<init>':
         left = expr.params[0]
-        newexpr = ast.ClassInstanceCreation(ast.TypeName(left.dtype), expr.tts[1:], expr.params[1:])
+        newexpr = ast.carry(expr, ast.ClassInstanceCreation(ast.TypeName(left.dtype), expr.tts[1:], expr.params[1:]))
         item.expr = ast.Assignment(left, newexpr)
 
 def _pruneRethrow_cb(item):
@@ -377,12 +377,15 @@ def _mergeComparisons(expr):
     elif notbits == 0:
         return ast.Literal.FALSE
     elif bits in d:
-        return ast.BinaryInfix(d[bits], args, objtypes.BoolTT)
+        return ast.carry(expr, ast.BinaryInfix(d[bits], args, objtypes.BoolTT))
     elif notbits in d:
-        return ast.UnaryPrefix('!', ast.BinaryInfix(d[notbits], args, objtypes.BoolTT))
+        return ast.carry(expr, ast.UnaryPrefix('!', ast.BinaryInfix(d[notbits], args, objtypes.BoolTT)))
     return expr
 
 def _simplifyExpressions(expr):
+    return ast.carry(expr, _simplifyExpression(expr))
+
+def _simplifyExpression(expr):
     TRUE, FALSE = ast.Literal.TRUE, ast.Literal.FALSE
     bools = {True:TRUE, False:FALSE}
     opfuncs = {'<': operator.lt, '<=': operator.le, '>': operator.gt, '>=': operator.ge}
@@ -456,7 +459,7 @@ def _simplifyExpressions(expr):
     # 0 - a -> -a
     if isinstance(expr, ast.BinaryInfix) and expr.opstr == '-':
         if expr.params[0] == ast.Literal.ZERO or expr.params[0] == ast.Literal.LZERO:
-            expr = ast.UnaryPrefix('-', expr.params[1])
+            expr = ast.carry(expr, ast.UnaryPrefix('-', expr.params[1]))
 
     # (double)4.2f -> 4.2, etc.
     if isinstance(expr, ast.Cast) and isinstance(expr.params[1], ast.Literal):

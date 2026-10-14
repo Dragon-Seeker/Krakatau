@@ -44,6 +44,34 @@ name is read from the bytes; your buffer is copied, not transferred.
 
 First call pays for parsing the JDK stubs (~0.4 s); after that ~40 ms+ per class.
 
+### Bytecode offset mapping
+
+`decompileMapped` / `decompileClassMapped` (also on workspaces) return the same source plus, for every
+method with printed code, the output line each bytecode offset was printed on. That links a bytecode
+location (class, method, offset), e.g. an analyzer's finding, to the decompiled source.
+
+    const { source, methods } = await krak.decompileMapped(jarId, 'com/example/Foo');
+    // methods: [{ owner: 'com/example/Foo', name: 'run', descriptor: '()V',
+    //             lines: [[0, 12], [4, 12], [14, 16]], original: null }, ...]
+
+* `lines` are `[offset, 1-based line]` pairs sorted by offset: the line where the code an instruction
+  became starts. Loads, stores, `dup` and the like become SSA variables rather than code, so their
+  offsets are absent (about a third of instructions map; calls, field accesses, `new`, branches and
+  throws do). Resolve an absent offset via the nearest mapped one in the same basic block.
+* Returns aren't mapped: Krakatau merges a method's returns into one block, so `return x;` has no
+  instruction of its own.
+* Lambda bodies are attributed to their `lambda$` method (`owner`/`name`/`descriptor`), inner classes
+  are their own classes, as Krakatau decompiles them separately.
+* The same shape as the CFR, vf and Procyon ports' `decompileMapped` methods, so one viewer handles all.
+
+How it works: each SSA op and jump is tagged with the offset of the instruction that made it
+(`ssa/blockmaker.py`), the tag is copied onto the AST node built from it (`java/astgen.py`) and kept
+when later passes replace that node (`ast.carry` in `java/javamethod.py`), and `MappingVisitor`
+(`java/visitor.py`) prints with invisible markers that it strips while recording their lines. Shared
+`Local`/`Literal` nodes are never tagged. Checked on Gson, Guava, Okio and test fixtures (~470 classes):
+the source is byte-identical to `decompile`, no offset is outside an instruction start, and every
+mapped call is on a line naming it.
+
 ### External class source (resolveClass)
 
 Like slicer's decompiler setups, the decompiler can ask *your* code for classes it can't find

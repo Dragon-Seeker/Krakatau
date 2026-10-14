@@ -1,4 +1,4 @@
-import { KrakClient, type DecompileResult, type KrakRequest } from 'krakatau-web';
+import { KrakClient, type DecompileResult, type KrakRequest, type MethodMapping } from 'krakatau-web';
 
 export async function run(file: File): Promise<string> {
   const krak = new KrakClient({ stubURLs: ['/stubs/mc-stubs.jar'] });
@@ -23,4 +23,18 @@ export async function single(bytes: Uint8Array, siblings: Uint8Array[]) {
   const two = await ws.decompileClass(bytes);
   await ws.close();
   return [name, added, two.source];
+}
+
+export async function mapped(file: File, bytes: Uint8Array) {
+  const krak = new KrakClient();
+  const { jarId, classes } = await krak.openJar(await file.arrayBuffer());
+  const r = await krak.decompileMapped(jarId, classes[0]);
+  const lines: [number, number][] = r.methods.flatMap((m) => m.lines);
+  const owner: string = r.methods[0].owner;
+  const original: [number, number][] | null = r.methods[0].original;
+  const ws = await krak.createWorkspace();
+  const one: MethodMapping[] = (await ws.decompileClassMapped(bytes)).methods;
+  const two: string | null = (await krak.decompileClassMapped(bytes, { workspace: ws })).className;
+  const msg: KrakRequest = { id: 2, type: 'decompileMapped', jarId, className: 'a/B' };
+  return [lines, owner, original, one, two, msg];
 }

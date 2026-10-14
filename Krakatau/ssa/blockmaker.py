@@ -250,6 +250,11 @@ class BlockMaker(object):
         parent = self.parent
         block = self.current_block
         line, jump = vals.line, vals.jump
+        # bytecode mapping: remember which instruction produced this op / jump
+        if line is not None:
+            line.bc_offset = iNode.key
+        if jump is not None:
+            jump.bc_offset = iNode.key
         if line is not None:
             block.lines.append(line)
         assert block.jump is None

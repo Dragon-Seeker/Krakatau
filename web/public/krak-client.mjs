@@ -32,6 +32,9 @@ export class KrakWorkspace {
   decompileClass(bytes, { classpath = [] } = {}) {
     return this.client.decompileClass(bytes, { classpath, workspace: this });
   }
+  decompileClassMapped(bytes, { classpath = [] } = {}) {
+    return this.client.decompileClassMapped(bytes, { classpath, workspace: this });
+  }
   close() {
     return this.client._call('closeJar', { jarId: this.id });
   }
@@ -113,6 +116,15 @@ export class KrakClient {
     return this._call('decompile', { jarId, className });
   }
 
+  /**
+   * Like decompile, plus `methods`: for each method with printed code, the output line each bytecode
+   * offset was printed on ({ owner, name, descriptor, lines: [[offset, 1-based line]], original: null }).
+   */
+  async decompileMapped(jarId, className) {
+    await this.ready;
+    return this._call('decompileMapped', { jarId, className });
+  }
+
   async closeJar(jarId) {
     await this.ready;
     return this._call('closeJar', { jarId });
@@ -131,6 +143,13 @@ export class KrakClient {
     await this.ready;
     const workspaceId = workspace == null ? undefined : (typeof workspace === 'number' ? workspace : workspace.id);
     return this._call('decompileClass', { bytes, classpath, workspaceId });
+  }
+
+  /** Like decompileClass, plus `methods` (see decompileMapped). */
+  async decompileClassMapped(bytes, { classpath = [], workspace } = {}) {
+    await this.ready;
+    const workspaceId = workspace == null ? undefined : (typeof workspace === 'number' ? workspace : workspace.id);
+    return this._call('decompileClassMapped', { bytes, classpath, workspaceId });
   }
 
   /** A reusable classpath of in-memory classes, for decompiling many classes from the same mod. */
